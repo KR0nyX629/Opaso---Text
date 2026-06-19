@@ -2,13 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Mini Docs – Markdown Editor</title>
+  <title>opaso - text</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- MIT License: You are free to use, modify, and distribute this file. -->
 
   <!-- Markdown renderer -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- MathJax for LaTeX equations -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\
+
+\[', '\\]
+
+']]
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
 
   <style>
     :root {
@@ -17,6 +33,7 @@
       --fg: #111827;
       --accent: #2563eb;
       --border: #d1d5db;
+      --editor-width: min(900px, 100%);
     }
     :root.dark {
       --bg: #020617;
@@ -33,7 +50,7 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: var(--bg);
       color: var(--fg);
-      height: 100vh;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
@@ -52,6 +69,7 @@
       display: flex;
       align-items: center;
       gap: 0.5rem;
+      flex-wrap: wrap;
     }
 
     h1 {
@@ -92,73 +110,63 @@
     main {
       flex: 1;
       display: flex;
-      min-height: 0;
-    }
-
-    .pane {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-    }
-
-    .pane-header {
-      padding: 0.4rem 0.6rem;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      background: var(--bg-alt);
-    }
-
-    textarea {
-      flex: 1;
-      width: 100%;
-      border: none;
+      justify-content: center;
       padding: 0.75rem;
-      resize: none;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 0.9rem;
+    }
+
+    #editorShell {
+      width: var(--editor-width);
+      max-width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
       background: var(--bg);
-      color: var(--fg);
+      padding: 1rem 1.25rem;
+      margin: 0 auto;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
     }
 
-    textarea:focus {
+    #editor {
+      min-height: 70vh;
       outline: none;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
 
-    #preview {
-      flex: 1;
-      padding: 0.75rem;
-      overflow: auto;
+    #editor:empty::before {
+      content: "Start typing, or paste Markdown (with $...$ equations)…";
+      color: #9ca3af;
     }
 
-    #preview h1, #preview h2, #preview h3 {
+    #editor h1, #editor h2, #editor h3 {
       border-bottom: 1px solid var(--border);
       padding-bottom: 0.25rem;
     }
 
-    #preview pre {
+    #editor pre {
       background: var(--bg-alt);
       padding: 0.5rem;
       border-radius: 4px;
       overflow: auto;
     }
 
-    #preview code {
+    #editor code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 
-    #preview a {
+    #editor a {
       color: var(--accent);
     }
 
-    @media (max-width: 800px) {
-      main {
-        flex-direction: column;
+    @media (max-width: 640px) {
+      header {
+        align-items: flex-start;
       }
-      .pane-header {
-        text-align: center;
+      .left {
+        flex: 1 1 100%;
+      }
+      .right {
+        justify-content: flex-end;
+        width: 100%;
       }
     }
   </style>
@@ -166,7 +174,7 @@
 <body>
   <header>
     <div class="left">
-      <h1>Mini Docs</h1>
+      <h1>opaso - text</h1>
       <input id="docTitle" type="text" placeholder="Untitled document" />
       <button id="newBtn">New</button>
       <button id="saveBtn" class="primary">Save</button>
@@ -180,22 +188,18 @@
   </header>
 
   <main>
-    <section class="pane">
-      <div class="pane-header">Markdown</div>
-      <textarea id="editor" placeholder="# Start typing or paste Markdown here…"></textarea>
-    </section>
-    <section class="pane">
-      <div class="pane-header">Preview</div>
-      <div id="preview"></div>
-    </section>
+    <div id="editorShell">
+      <div id="editor" contenteditable="true"></div>
+    </div>
   </main>
 
   <script>
-    // --- Storage helpers ----------------------------------------------------
-    const STORAGE_KEY = "mini-docs-documents";
-    const THEME_KEY = "mini-docs-theme";
-    const ACTIVE_KEY = "mini-docs-active-id";
+    // --- Storage keys -------------------------------------------------------
+    const STORAGE_KEY = "opaso-text-documents";
+    const THEME_KEY = "opaso-text-theme";
+    const ACTIVE_KEY = "opaso-text-active-id";
 
+    // --- Storage helpers ----------------------------------------------------
     function loadDocs() {
       try {
         return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
@@ -214,7 +218,6 @@
 
     // --- DOM references -----------------------------------------------------
     const editor = document.getElementById("editor");
-    const preview = document.getElementById("preview");
     const docTitleInput = document.getElementById("docTitle");
     const newBtn = document.getElementById("newBtn");
     const saveBtn = document.getElementById("saveBtn");
@@ -224,15 +227,51 @@
     let docs = loadDocs();
     let activeId = localStorage.getItem(ACTIVE_KEY) || null;
 
-    // --- Markdown rendering -------------------------------------------------
-    function render() {
-      const text = editor.value;
-      preview.innerHTML = marked.parse(text, { breaks: true });
+    // --- Markdown paste handling -------------------------------------------
+    function typesetMath() {
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise([editor]).catch(() => {});
+      }
     }
 
-    editor.addEventListener("input", render);
+    editor.addEventListener("paste", (e) => {
+      const text = e.clipboardData && e.clipboardData.getData("text/plain");
+      if (!text) return;
 
-    // --- Document management ------------------------------------------------
+      e.preventDefault();
+
+      // Convert pasted Markdown to HTML
+      const html = marked.parse(text, { breaks: true });
+
+      // Insert HTML at caret
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        editor.insertAdjacentHTML("beforeend", html);
+      } else {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        const temp = document.createElement("div");
+        temp.innerHTML = html;
+        const frag = document.createDocumentFragment();
+        let node;
+        while ((node = temp.firstChild)) {
+          frag.appendChild(node);
+        }
+        range.insertNode(frag);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+
+      typesetMath();
+    });
+
+    // When content changes (typing), re-run MathJax for new formulas
+    editor.addEventListener("input", () => {
+      typesetMath();
+    });
+
+    // --- Document management -----------------------------------------------
     function refreshOpenSelect() {
       const current = openSelect.value;
       openSelect.innerHTML = '<option value="">Open…</option>';
@@ -253,8 +292,8 @@
       activeId = id;
       localStorage.setItem(ACTIVE_KEY, id);
       docTitleInput.value = doc.title || "";
-      editor.value = doc.content || "";
-      render();
+      editor.innerHTML = doc.html || "";
+      typesetMath();
       refreshOpenSelect();
       openSelect.value = id;
     }
@@ -263,21 +302,21 @@
       activeId = null;
       localStorage.removeItem(ACTIVE_KEY);
       docTitleInput.value = "";
-      editor.value = "";
-      render();
+      editor.innerHTML = "";
+      refreshOpenSelect();
       openSelect.value = "";
     }
 
     function saveDoc() {
       const title = docTitleInput.value.trim() || "Untitled";
-      const content = editor.value;
+      const html = editor.innerHTML;
       const now = Date.now();
 
       if (!activeId) {
         activeId = generateId();
       }
 
-      docs[activeId] = { title, content, updated: now };
+      docs[activeId] = { title, html, updated: now };
       saveDocs(docs);
       localStorage.setItem(ACTIVE_KEY, activeId);
       refreshOpenSelect();
@@ -285,7 +324,7 @@
     }
 
     newBtn.addEventListener("click", () => {
-      if (editor.value.trim() || docTitleInput.value.trim()) {
+      if (editor.innerText.trim() || docTitleInput.value.trim()) {
         const ok = confirm("Discard current document and start a new one?");
         if (!ok) return;
       }
@@ -301,7 +340,6 @@
     });
 
     docTitleInput.addEventListener("input", () => {
-      // live title update in list (without forcing a full save)
       if (!activeId || !docs[activeId]) return;
       docs[activeId].title = docTitleInput.value;
       docs[activeId].updated = Date.now();
@@ -337,14 +375,16 @@
     if (activeId && docs[activeId]) {
       loadDoc(activeId);
     } else {
-      // starter text
-      editor.value = "# Welcome to Mini Docs\n\n" +
-        "- Type or paste **Markdown** on the left\n" +
-        "- Your rendered document appears on the right\n" +
-        "- Use **New**, **Save**, and **Open…** to manage local documents\n\n" +
-        "```js\nconsole.log('Markdown code blocks work too');\n```";
-      render();
+      const starter = `
+<h1><strong>opaso - text</strong></h1>
+<p>Paste Markdown (with equations) or just start typing like a word processor. Opaso - Text is the new best word- processor.  And it’s 100% open- source, in-fact, <strong>Op<strong>en <strong>so<strong>urce! Welcome, to the future…</p>
+
+`;
+      editor.innerHTML = starter;
+      typesetMath();
     }
   </script>
 </body>
 </html>
+
+
