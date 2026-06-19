@@ -5,8 +5,6 @@
   <title>opaso - text</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- MIT License -->
-
   <!-- Markdown renderer -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -142,7 +140,6 @@
       color: #9ca3af;
     }
 
-    /* Find & Replace dialog */
     #findReplace {
       position: fixed;
       right: 1rem;
@@ -183,19 +180,19 @@
 </header>
 
 <div id="toolbar">
-  <button onclick="format('bold')"><b>B</b></button>
-  <button onclick="format('italic')"><i>I</i></button>
-  <button onclick="format('underline')"><u>U</u></button>
-  <button onclick="insertHeading()">H</button>
-  <button onclick="format('insertUnorderedList')">• List</button>
-  <button onclick="format('insertOrderedList')">1. List</button>
-  <button onclick="insertCode()">Code</button>
-  <button onclick="insertQuote()">Quote</button>
-  <button onclick="insertHR()">HR</button>
-  <button onclick="insertEquation()">Equation</button>
-  <button onclick="insertImage()">Image</button>
-  <button onclick="insertTable()">Table</button>
-  <button onclick="toggleFindReplace()">Find/Replace</button>
+  <button id="boldBtn"><b>B</b></button>
+  <button id="italicBtn"><i>I</i></button>
+  <button id="underlineBtn"><u>U</u></button>
+  <button id="headingBtn">H</button>
+  <button id="ulBtn">• List</button>
+  <button id="olBtn">1. List</button>
+  <button id="codeBtn">Code</button>
+  <button id="quoteBtn">Quote</button>
+  <button id="hrBtn">HR</button>
+  <button id="eqBtn">Equation</button>
+  <button id="imgBtn">Image</button>
+  <button id="tableBtn">Table</button>
+  <button id="findBtn">Find/Replace</button>
 </div>
 
 <main>
@@ -208,245 +205,255 @@
   <div><strong>Find & Replace</strong></div>
   <input id="findText" type="text" placeholder="Find…" /><br />
   <input id="replaceText" type="text" placeholder="Replace with…" /><br />
-  <button onclick="doFind()">Find</button>
-  <button onclick="doReplace()">Replace</button>
-  <button onclick="closeFindReplace()">Close</button>
+  <button id="doFindBtn">Find</button>
+  <button id="doReplaceBtn">Replace</button>
+  <button id="closeFindBtn">Close</button>
 </div>
 
 <script>
-/* --- DOM refs --- */
-const editor = document.getElementById("editor");
-const docTitle = document.getElementById("docTitle");
-const newBtn = document.getElementById("newBtn");
-const saveBtn = document.getElementById("saveBtn");
-const openSelect = document.getElementById("openSelect");
-const exportHTML = document.getElementById("exportHTML");
-const exportPDF = document.getElementById("exportPDF");
-const themeBtn = document.getElementById("themeBtn");
-const findReplaceBox = document.getElementById("findReplace");
-const findInput = document.getElementById("findText");
-const replaceInput = document.getElementById("replaceText");
+  // DOM refs
+  const editor = document.getElementById("editor");
+  const docTitle = document.getElementById("docTitle");
+  const newBtn = document.getElementById("newBtn");
+  const saveBtn = document.getElementById("saveBtn");
+  const openSelect = document.getElementById("openSelect");
+  const exportHTML = document.getElementById("exportHTML");
+  const exportPDF = document.getElementById("exportPDF");
+  const themeBtn = document.getElementById("themeBtn");
 
-/* --- Formatting Toolbar --- */
-function format(cmd) {
-  document.execCommand(cmd, false, null);
-}
+  const boldBtn = document.getElementById("boldBtn");
+  const italicBtn = document.getElementById("italicBtn");
+  const underlineBtn = document.getElementById("underlineBtn");
+  const headingBtn = document.getElementById("headingBtn");
+  const ulBtn = document.getElementById("ulBtn");
+  const olBtn = document.getElementById("olBtn");
+  const codeBtn = document.getElementById("codeBtn");
+  const quoteBtn = document.getElementById("quoteBtn");
+  const hrBtn = document.getElementById("hrBtn");
+  const eqBtn = document.getElementById("eqBtn");
+  const imgBtn = document.getElementById("imgBtn");
+  const tableBtn = document.getElementById("tableBtn");
+  const findBtn = document.getElementById("findBtn");
 
-function insertHeading() {
-  document.execCommand("formatBlock", false, "h2");
-}
+  const findReplaceBox = document.getElementById("findReplace");
+  const findInput = document.getElementById("findText");
+  const replaceInput = document.getElementById("replaceText");
+  const doFindBtn = document.getElementById("doFindBtn");
+  const doReplaceBtn = document.getElementById("doReplaceBtn");
+  const closeFindBtn = document.getElementById("closeFindBtn");
 
-function insertCode() {
-  document.execCommand("insertHTML", false, "<pre><code>code here</code></pre>");
-}
-
-function insertQuote() {
-  document.execCommand("formatBlock", false, "blockquote");
-}
-
-function insertHR() {
-  document.execCommand("insertHorizontalRule");
-}
-
-function insertEquation() {
-  document.execCommand("insertHTML", false, "<p>$your\\ equation\\ here$</p>");
-  typesetMath();
-}
-
-function insertImage() {
-  const url = prompt("Image URL:");
-  if (!url) return;
-  document.execCommand("insertHTML", false, `<p><img src="${url}" alt="image" style="max-width:100%;"/></p>`);
-}
-
-function insertTable() {
-  const rows = 3, cols = 3;
-  let html = "<table border='1' style='border-collapse:collapse;width:100%;'>";
-  for (let r = 0; r < rows; r++) {
-    html += "<tr>";
-    for (let c = 0; c < cols; c++) {
-      html += "<td style='padding:4px;'>Cell</td>";
-    }
-    html += "</tr>";
+  // Formatting helpers
+  function exec(cmd, value = null) {
+    document.execCommand(cmd, false, value);
   }
-  html += "</table>";
-  document.execCommand("insertHTML", false, html);
-}
 
-/* --- Find & Replace --- */
-function toggleFindReplace() {
-  findReplaceBox.style.display = findReplaceBox.style.display === "none" || !findReplaceBox.style.display ? "block" : "none";
-  if (findReplaceBox.style.display === "block") findInput.focus();
-}
-
-function closeFindReplace() {
-  findReplaceBox.style.display = "none";
-}
-
-function doFind() {
-  const text = findInput.value;
-  if (!text) return;
-  const content = editor.innerHTML;
-  const idx = content.toLowerCase().indexOf(text.toLowerCase());
-  if (idx === -1) return alert("Not found");
-  const range = document.createRange();
-  const sel = window.getSelection();
-  sel.removeAllRanges();
-  // crude: use textContent search
-  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
-  let node, offset = 0;
-  while ((node = walker.nextNode())) {
-    const len = node.textContent.length;
-    if (offset + len >= idx) {
-      const start = idx - offset;
-      range.setStart(node, start);
-      range.setEnd(node, Math.min(start + text.length, len));
-      sel.addRange(range);
-      break;
+  function typesetMath() {
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      window.MathJax.typesetPromise([editor]).catch(() => {});
     }
-    offset += len;
   }
-}
 
-function doReplace() {
-  const findText = findInput.value;
-  const replaceText = replaceInput.value;
-  if (!findText) return;
-  const html = editor.innerHTML;
-  const re = new RegExp(findText.replace(/[.*+?^${}()|[\]
+  // Toolbar actions
+  boldBtn.onclick = () => exec("bold");
+  italicBtn.onclick = () => exec("italic");
+  underlineBtn.onclick = () => exec("underline");
+  headingBtn.onclick = () => exec("formatBlock", "h2");
+  ulBtn.onclick = () => exec("insertUnorderedList");
+  olBtn.onclick = () => exec("insertOrderedList");
+  codeBtn.onclick = () => exec("insertHTML", "<pre><code>code here</code></pre>");
+  quoteBtn.onclick = () => exec("formatBlock", "blockquote");
+  hrBtn.onclick = () => exec("insertHorizontalRule");
+  eqBtn.onclick = () => {
+    exec("insertHTML", "<p>$your\\ equation\\ here$</p>");
+    typesetMath();
+  };
+  imgBtn.onclick = () => {
+    const url = prompt("Image URL:");
+    if (!url) return;
+    exec("insertHTML", `<p><img src="${url}" alt="image" style="max-width:100%;"/></p>`);
+  };
+  tableBtn.onclick = () => {
+    const rows = 3, cols = 3;
+    let html = "<table border='1' style='border-collapse:collapse;width:100%;'>";
+    for (let r = 0; r < rows; r++) {
+      html += "<tr>";
+      for (let c = 0; c < cols; c++) {
+        html += "<td style='padding:4px;'>Cell</td>";
+      }
+      html += "</tr>";
+    }
+    html += "</table>";
+    exec("insertHTML", html);
+  };
+
+  // Find & Replace
+  function toggleFindReplace() {
+    const visible = findReplaceBox.style.display === "block";
+    findReplaceBox.style.display = visible ? "none" : "block";
+    if (!visible) findInput.focus();
+  }
+  findBtn.onclick = toggleFindReplace;
+  closeFindBtn.onclick = () => (findReplaceBox.style.display = "none");
+
+  doFindBtn.onclick = () => {
+    const text = findInput.value;
+    if (!text) return;
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+    let node;
+    while ((node = walker.nextNode())) {
+      const idx = node.textContent.toLowerCase().indexOf(text.toLowerCase());
+      if (idx !== -1) {
+        const range = document.createRange();
+        range.setStart(node, idx);
+        range.setEnd(node, idx + text.length);
+        sel.addRange(range);
+        break;
+      }
+    }
+  };
+
+  doReplaceBtn.onclick = () => {
+    const findText = findInput.value;
+    const replaceText = replaceInput.value;
+    if (!findText) return;
+    const re = new RegExp(findText.replace(/[.*+?^${}()|[\]
 
 \\]
 
 /g, "\\$&"), "gi");
-  editor.innerHTML = html.replace(re, replaceText);
-  typesetMath();
-}
+    editor.innerHTML = editor.innerHTML.replace(re, replaceText);
+    typesetMath();
+  };
 
-/* --- MathJax --- */
-function typesetMath() {
-  if (window.MathJax && window.MathJax.typesetPromise) {
-    window.MathJax.typesetPromise([editor]).catch(() => {});
-  }
-}
-
-/* --- Markdown Paste --- */
-editor.addEventListener("paste", (e) => {
-  const text = e.clipboardData.getData("text/plain");
-  if (!text) return;
-  e.preventDefault();
-  const html = marked.parse(text);
-  document.execCommand("insertHTML", false, html);
-  typesetMath();
-});
-
-/* --- Storage & Autosave --- */
-const STORAGE_KEY = "opaso-text-documents";
-const ACTIVE_KEY = "opaso-text-active-id";
-let docs = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-let activeId = localStorage.getItem(ACTIVE_KEY) || null;
-
-function saveDocs() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
-}
-
-function refreshOpenSelect() {
-  openSelect.innerHTML = '<option value="">Open…</option>';
-  Object.entries(docs).forEach(([id, doc]) => {
-    const opt = document.createElement("option");
-    opt.value = id;
-    opt.textContent = doc.title;
-    openSelect.appendChild(opt);
+  // Markdown paste
+  editor.addEventListener("paste", (e) => {
+    const text = e.clipboardData && e.clipboardData.getData("text/plain");
+    if (!text) return;
+    e.preventDefault();
+    const html = marked.parse(text);
+    exec("insertHTML", html);
+    typesetMath();
   });
-}
 
-function loadDoc(id) {
-  const doc = docs[id];
-  if (!doc) return;
-  activeId = id;
-  localStorage.setItem(ACTIVE_KEY, id);
-  docTitle.value = doc.title;
-  editor.innerHTML = doc.html;
-  typesetMath();
-  refreshOpenSelect();
-  openSelect.value = id;
-}
-
-function newDoc() {
-  activeId = null;
-  localStorage.removeItem(ACTIVE_KEY);
-  docTitle.value = "";
-  editor.innerHTML = "";
-  refreshOpenSelect();
-}
-
-function saveDoc() {
-  const title = docTitle.value.trim() || "Untitled";
-  const html = editor.innerHTML;
-  if (!activeId) activeId = "doc-" + Date.now();
-  docs[activeId] = { title, html };
-  saveDocs();
-  localStorage.setItem(ACTIVE_KEY, activeId);
-  refreshOpenSelect();
-  openSelect.value = activeId;
-}
-
-newBtn.onclick = () => {
-  if (editor.innerText.trim() || docTitle.value.trim()) {
-    if (!confirm("Discard current document and start a new one?")) return;
+  // Storage & autosave
+  const STORAGE_KEY = "opaso-text-documents";
+  const ACTIVE_KEY = "opaso-text-active-id";
+  let docs = {};
+  try {
+    docs = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+  } catch {
+    docs = {};
   }
-  newDoc();
-};
+  let activeId = localStorage.getItem(ACTIVE_KEY) || null;
 
-saveBtn.onclick = saveDoc;
+  function saveDocs() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+  }
 
-openSelect.onchange = () => {
-  const id = openSelect.value;
-  if (!id) return;
-  loadDoc(id);
-};
+  function refreshOpenSelect() {
+    openSelect.innerHTML = '<option value="">Open…</option>';
+    Object.entries(docs).forEach(([id, doc]) => {
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = doc.title;
+      openSelect.appendChild(opt);
+    });
+  }
 
-/* Autosave every 10 seconds */
-setInterval(() => {
-  if (!docTitle.value.trim() && !editor.innerText.trim()) return;
-  saveDoc();
-}, 10000);
+  function loadDoc(id) {
+    const doc = docs[id];
+    if (!doc) return;
+    activeId = id;
+    localStorage.setItem(ACTIVE_KEY, id);
+    docTitle.value = doc.title;
+    editor.innerHTML = doc.html;
+    typesetMath();
+    refreshOpenSelect();
+    openSelect.value = id;
+  }
 
-/* --- Export --- */
-exportHTML.onclick = () => {
-  const blob = new Blob([editor.innerHTML], { type: "text/html" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = (docTitle.value || "document") + ".html";
-  a.click();
-};
+  function newDoc() {
+    activeId = null;
+    localStorage.removeItem(ACTIVE_KEY);
+    docTitle.value = "";
+    editor.innerHTML = "";
+    refreshOpenSelect();
+  }
 
-exportPDF.onclick = () => {
-  window.print();
-};
+  function saveDoc() {
+    const title = docTitle.value.trim() || "Untitled";
+    const html = editor.innerHTML;
+    if (!activeId) activeId = "doc-" + Date.now();
+    docs[activeId] = { title, html };
+    saveDocs();
+    localStorage.setItem(ACTIVE_KEY, activeId);
+    refreshOpenSelect();
+    openSelect.value = activeId;
+  }
 
-/* --- Theme --- */
-function applyTheme(t) {
-  document.documentElement.classList.toggle("dark", t === "dark");
-  themeBtn.textContent = t === "dark" ? "☀️ Day" : "🌙 Night";
-}
+  newBtn.onclick = () => {
+    if (editor.innerText.trim() || docTitle.value.trim()) {
+      if (!confirm("Discard current document and start a new one?")) return;
+    }
+    newDoc();
+  };
 
-let theme = localStorage.getItem("opaso-theme") || "light";
-applyTheme(theme);
+  saveBtn.onclick = saveDoc;
 
-themeBtn.onclick = () => {
-  theme = theme === "dark" ? "light" : "dark";
-  localStorage.setItem("opaso-theme", theme);
+  openSelect.onchange = () => {
+    const id = openSelect.value;
+    if (!id) return;
+    loadDoc(id);
+  };
+
+  // Autosave every 10s
+  setInterval(() => {
+    if (!docTitle.value.trim() && !editor.innerText.trim()) return;
+    saveDoc();
+  }, 10000);
+
+  // Export
+  exportHTML.onclick = () => {
+    const blob = new Blob([editor.innerHTML], { type: "text/html" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = (docTitle.value || "document") + ".html";
+    a.click();
+  };
+
+  exportPDF.onclick = () => {
+    window.print();
+  };
+
+  // Theme
+  function applyTheme(t) {
+    document.documentElement.classList.toggle("dark", t === "dark");
+    themeBtn.textContent = t === "dark" ? "☀️ Day" : "🌙 Night";
+  }
+  let theme = localStorage.getItem("opaso-theme") || "light";
   applyTheme(theme);
-};
+  themeBtn.onclick = () => {
+    theme = theme === "dark" ? "light" : "dark";
+    localStorage.setItem("opaso-theme", theme);
+    applyTheme(theme);
+  };
 
-/* --- Init --- */
-refreshOpenSelect();
-if (activeId && docs[activeId]) {
-  loadDoc(activeId);
-} else {
-  editor.innerHTML = "<h2>Welcome to opaso - text v2</h2><p>Images, tables, autosave, find & replace, markdown paste, equations — all in one pane.</p>";
-  typesetMath();
-}
+  // Init
+  refreshOpenSelect();
+  if (activeId && docs[activeId]) {
+    loadDoc(activeId);
+  } else {
+    editor.innerHTML = `
+<h2>Welcome to opaso - text</h2>
+<p>Type, paste Markdown, add equations like $Distance = Speed \\times Time$.</p>
+<ul>
+  <li>Toolbar: bold, headings, lists, code, quote, HR, equations, images, tables.</li>
+  <li>Autosave, find & replace, export HTML/PDF, day/night theme.</li>
+</ul>`;
+    typesetMath();
+  }
 </script>
 
 </body>
