@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mini Docs – Markdown Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- MIT License: You are free to use, modify, and distribute this file. -->
+
+  <!-- Markdown renderer -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg-alt: #f3f4f6;
+      --fg: #111827;
+      --accent: #2563eb;
+      --border: #d1d5db;
+    }
+    :root.dark {
+      --bg: #020617;
+      --bg-alt: #0f172a;
+      --fg: #e5e7eb;
+      --accent: #38bdf8;
+      --border: #1f2937;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-alt);
+      gap: 0.75rem;
+    }
+
+    .left, .right {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    h1 {
+      font-size: 1rem;
+      margin: 0;
+      font-weight: 600;
+    }
+
+    input[type="text"] {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--fg);
+      min-width: 10rem;
+    }
+
+    button, select {
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--fg);
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #f9fafb;
+      border-color: var(--accent);
+    }
+
+    button:hover, select:hover {
+      filter: brightness(1.05);
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+
+    .pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .pane-header {
+      padding: 0.4rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--bg-alt);
+    }
+
+    textarea {
+      flex: 1;
+      width: 100%;
+      border: none;
+      padding: 0.75rem;
+      resize: none;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.9rem;
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    textarea:focus {
+      outline: none;
+    }
+
+    #preview {
+      flex: 1;
+      padding: 0.75rem;
+      overflow: auto;
+    }
+
+    #preview h1, #preview h2, #preview h3 {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.25rem;
+    }
+
+    #preview pre {
+      background: var(--bg-alt);
+      padding: 0.5rem;
+      border-radius: 4px;
+      overflow: auto;
+    }
+
+    #preview code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    #preview a {
+      color: var(--accent);
+    }
+
+    @media (max-width: 800px) {
+      main {
+        flex-direction: column;
+      }
+      .pane-header {
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="left">
+      <h1>Mini Docs</h1>
+      <input id="docTitle" type="text" placeholder="Untitled document" />
+      <button id="newBtn">New</button>
+      <button id="saveBtn" class="primary">Save</button>
+      <select id="openSelect">
+        <option value="">Open…</option>
+      </select>
+    </div>
+    <div class="right">
+      <button id="themeBtn">🌙 Night</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="pane">
+      <div class="pane-header">Markdown</div>
+      <textarea id="editor" placeholder="# Start typing or paste Markdown here…"></textarea>
+    </section>
+    <section class="pane">
+      <div class="pane-header">Preview</div>
+      <div id="preview"></div>
+    </section>
+  </main>
+
+  <script>
+    // --- Storage helpers ----------------------------------------------------
+    const STORAGE_KEY = "mini-docs-documents";
+    const THEME_KEY = "mini-docs-theme";
+    const ACTIVE_KEY = "mini-docs-active-id";
+
+    function loadDocs() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveDocs(docs) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+    }
+
+    function generateId() {
+      return "doc-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+    }
+
+    // --- DOM references -----------------------------------------------------
+    const editor = document.getElementById("editor");
+    const preview = document.getElementById("preview");
+    const docTitleInput = document.getElementById("docTitle");
+    const newBtn = document.getElementById("newBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const openSelect = document.getElementById("openSelect");
+    const themeBtn = document.getElementById("themeBtn");
+
+    let docs = loadDocs();
+    let activeId = localStorage.getItem(ACTIVE_KEY) || null;
+
+    // --- Markdown rendering -------------------------------------------------
+    function render() {
+      const text = editor.value;
+      preview.innerHTML = marked.parse(text, { breaks: true });
+    }
+
+    editor.addEventListener("input", render);
+
+    // --- Document management ------------------------------------------------
+    function refreshOpenSelect() {
+      const current = openSelect.value;
+      openSelect.innerHTML = '<option value="">Open…</option>';
+      Object.entries(docs)
+        .sort((a, b) => (a[1].updated || 0) < (b[1].updated || 0) ? 1 : -1)
+        .forEach(([id, doc]) => {
+          const opt = document.createElement("option");
+          opt.value = id;
+          opt.textContent = doc.title || "Untitled";
+          openSelect.appendChild(opt);
+        });
+      if (current && docs[current]) openSelect.value = current;
+    }
+
+    function loadDoc(id) {
+      const doc = docs[id];
+      if (!doc) return;
+      activeId = id;
+      localStorage.setItem(ACTIVE_KEY, id);
+      docTitleInput.value = doc.title || "";
+      editor.value = doc.content || "";
+      render();
+      refreshOpenSelect();
+      openSelect.value = id;
+    }
+
+    function newDoc() {
+      activeId = null;
+      localStorage.removeItem(ACTIVE_KEY);
+      docTitleInput.value = "";
+      editor.value = "";
+      render();
+      openSelect.value = "";
+    }
+
+    function saveDoc() {
+      const title = docTitleInput.value.trim() || "Untitled";
+      const content = editor.value;
+      const now = Date.now();
+
+      if (!activeId) {
+        activeId = generateId();
+      }
+
+      docs[activeId] = { title, content, updated: now };
+      saveDocs(docs);
+      localStorage.setItem(ACTIVE_KEY, activeId);
+      refreshOpenSelect();
+      openSelect.value = activeId;
+    }
+
+    newBtn.addEventListener("click", () => {
+      if (editor.value.trim() || docTitleInput.value.trim()) {
+        const ok = confirm("Discard current document and start a new one?");
+        if (!ok) return;
+      }
+      newDoc();
+    });
+
+    saveBtn.addEventListener("click", saveDoc);
+
+    openSelect.addEventListener("change", () => {
+      const id = openSelect.value;
+      if (!id) return;
+      loadDoc(id);
+    });
+
+    docTitleInput.addEventListener("input", () => {
+      // live title update in list (without forcing a full save)
+      if (!activeId || !docs[activeId]) return;
+      docs[activeId].title = docTitleInput.value;
+      docs[activeId].updated = Date.now();
+      saveDocs(docs);
+      refreshOpenSelect();
+      openSelect.value = activeId;
+    });
+
+    // --- Theme handling -----------------------------------------------------
+    function applyTheme(theme) {
+      const root = document.documentElement;
+      if (theme === "dark") {
+        root.classList.add("dark");
+        themeBtn.textContent = "☀️ Day";
+      } else {
+        root.classList.remove("dark");
+        themeBtn.textContent = "🌙 Night";
+      }
+    }
+
+    const savedTheme = localStorage.getItem(THEME_KEY) || "light";
+    applyTheme(savedTheme);
+
+    themeBtn.addEventListener("click", () => {
+      const current = document.documentElement.classList.contains("dark") ? "dark" : "light";
+      const next = current === "dark" ? "light" : "dark";
+      localStorage.setItem(THEME_KEY, next);
+      applyTheme(next);
+    });
+
+    // --- Initial load -------------------------------------------------------
+    refreshOpenSelect();
+    if (activeId && docs[activeId]) {
+      loadDoc(activeId);
+    } else {
+      // starter text
+      editor.value = "# Welcome to Mini Docs\n\n" +
+        "- Type or paste **Markdown** on the left\n" +
+        "- Your rendered document appears on the right\n" +
+        "- Use **New**, **Save**, and **Open…** to manage local documents\n\n" +
+        "```js\nconsole.log('Markdown code blocks work too');\n```";
+      render();
+    }
+  </script>
+</body>
+</html>
