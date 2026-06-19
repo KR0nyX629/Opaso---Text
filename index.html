@@ -5,10 +5,6 @@
   <title>opaso - text</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Quill editor -->
-  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
-
   <!-- Markdown renderer -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -101,20 +97,6 @@
       filter: brightness(1.05);
     }
 
-    #toolbar {
-      display: flex;
-      gap: 0.4rem;
-      padding: 0.5rem;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-alt);
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    #toolbar button {
-      font-size: 0.8rem;
-    }
-
     main {
       flex: 1;
       display: flex;
@@ -122,7 +104,7 @@
       padding: 0.75rem;
     }
 
-    #editorShell {
+    #shell {
       width: var(--editor-width);
       max-width: 100%;
       border: 1px solid var(--border);
@@ -130,50 +112,51 @@
       background: var(--bg);
       padding: 1rem 1.25rem;
       box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
     }
 
     #editor {
-      min-height: 70vh;
-    }
-
-    .ql-editor {
-      min-height: 70vh;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      color: var(--fg);
-      background: var(--bg);
-    }
-
-    .ql-container.ql-snow {
-      border: none;
-    }
-
-    #editor:empty::before,
-    .ql-editor.ql-blank::before {
-      content: "Start typing, or paste Markdown (with $...$ equations)…";
-      color: #9ca3af;
-      pointer-events: none;
-    }
-
-    #findReplace {
-      position: fixed;
-      right: 1rem;
-      bottom: 1rem;
-      background: var(--bg-alt);
+      width: 100%;
+      min-height: 40vh;
+      resize: vertical;
+      border-radius: 4px;
       border: 1px solid var(--border);
-      border-radius: 6px;
+      padding: 0.75rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    #preview {
+      width: 100%;
+      min-height: 40vh;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      padding: 0.75rem;
+      background: var(--bg-alt);
+      overflow: auto;
+    }
+
+    #preview h1, #preview h2, #preview h3 {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.25rem;
+    }
+
+    #preview pre {
+      background: var(--bg);
       padding: 0.5rem;
-      font-size: 0.8rem;
-      box-shadow: 0 8px 20px rgba(15,23,42,0.15);
-      display: none;
-      z-index: 50;
+      border-radius: 4px;
+      overflow: auto;
     }
-    #findReplace input {
-      width: 160px;
-      margin-bottom: 0.25rem;
+
+    #preview code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
-    #findReplace button {
-      font-size: 0.75rem;
+
+    #preview a {
+      color: var(--accent);
     }
   </style>
 </head>
@@ -194,60 +177,16 @@
   </div>
 </header>
 
-<div id="toolbar">
-  <button id="boldBtn"><b>B</b></button>
-  <button id="italicBtn"><i>I</i></button>
-  <button id="underlineBtn"><u>U</u></button>
-  <button id="headingBtn">H</button>
-  <button id="ulBtn">• List</button>
-  <button id="olBtn">1. List</button>
-  <button id="codeBtn">Code</button>
-  <button id="quoteBtn">Quote</button>
-  <button id="hrBtn">HR</button>
-  <button id="eqBtn">Equation</button>
-  <button id="imgBtn">Image</button>
-  <button id="tableBtn">Table</button>
-  <button id="findBtn">Find/Replace</button>
-</div>
-
 <main>
-  <div id="editorShell">
-    <div id="editor"></div>
+  <div id="shell">
+    <textarea id="editor" placeholder="# Start typing or paste Markdown with $equations$…"></textarea>
+    <div id="preview"></div>
   </div>
 </main>
 
-<div id="findReplace">
-  <div><strong>Find & Replace</strong></div>
-  <input id="findText" type="text" placeholder="Find…" /><br />
-  <input id="replaceText" type="text" placeholder="Replace with…" /><br />
-  <button id="doFindBtn">Find</button>
-  <button id="doReplaceBtn">Replace</button>
-  <button id="closeFindBtn">Close</button>
-</div>
-
 <script>
-  // --- Quill init ---
-  const quill = new Quill('#editor', {
-    theme: 'snow',
-    modules: {
-      toolbar: false
-    }
-  });
-
-  const editorRoot = quill.root;
-
-  // --- MathJax ---
-  function typesetMath() {
-    if (window.MathJax && window.MathJax.typesetPromise) {
-      window.MathJax.typesetPromise([editorRoot]).catch(() => {});
-    }
-  }
-
-  quill.on('text-change', () => {
-    typesetMath();
-  });
-
-  // --- DOM refs ---
+  const editor = document.getElementById("editor");
+  const preview = document.getElementById("preview");
   const docTitle = document.getElementById("docTitle");
   const newBtn = document.getElementById("newBtn");
   const saveBtn = document.getElementById("saveBtn");
@@ -256,149 +195,10 @@
   const exportPDF = document.getElementById("exportPDF");
   const themeBtn = document.getElementById("themeBtn");
 
-  const boldBtn = document.getElementById("boldBtn");
-  const italicBtn = document.getElementById("italicBtn");
-  const underlineBtn = document.getElementById("underlineBtn");
-  const headingBtn = document.getElementById("headingBtn");
-  const ulBtn = document.getElementById("ulBtn");
-  const olBtn = document.getElementById("olBtn");
-  const codeBtn = document.getElementById("codeBtn");
-  const quoteBtn = document.getElementById("quoteBtn");
-  const hrBtn = document.getElementById("hrBtn");
-  const eqBtn = document.getElementById("eqBtn");
-  const imgBtn = document.getElementById("imgBtn");
-  const tableBtn = document.getElementById("tableBtn");
-  const findBtn = document.getElementById("findBtn");
-
-  const findReplaceBox = document.getElementById("findReplace");
-  const findInput = document.getElementById("findText");
-  const replaceInput = document.getElementById("replaceText");
-  const doFindBtn = document.getElementById("doFindBtn");
-  const doReplaceBtn = document.getElementById("doReplaceBtn");
-  const closeFindBtn = document.getElementById("closeFindBtn");
-
-  // --- Toolbar actions (Quill formats) ---
-  boldBtn.onclick = () => quill.format('bold', !quill.getFormat().bold);
-  italicBtn.onclick = () => quill.format('italic', !quill.getFormat().italic);
-  underlineBtn.onclick = () => quill.format('underline', !quill.getFormat().underline);
-
-  headingBtn.onclick = () => {
-    const f = quill.getFormat();
-    quill.format('header', f.header === 2 ? false : 2);
-  };
-
-  ulBtn.onclick = () => {
-    const f = quill.getFormat();
-    quill.format('list', f.list === 'bullet' ? false : 'bullet');
-  };
-
-  olBtn.onclick = () => {
-    const f = quill.getFormat();
-    quill.format('list', f.list === 'ordered' ? false : 'ordered');
-  };
-
-  codeBtn.onclick = () => {
-    const f = quill.getFormat();
-    quill.format('code-block', !f['code-block']);
-  };
-
-  quoteBtn.onclick = () => {
-    const f = quill.getFormat();
-    quill.format('blockquote', !f.blockquote);
-  };
-
-  hrBtn.onclick = () => {
-    const range = quill.getSelection(true);
-    quill.insertEmbed(range.index, 'divider', true, 'user');
-    quill.insertText(range.index + 1, '\n', 'user');
-  };
-
-  // Custom blot for HR
-  const BlockEmbed = Quill.import('blots/block/embed');
-  class DividerBlot extends BlockEmbed {}
-  DividerBlot.blotName = 'divider';
-  DividerBlot.tagName = 'hr';
-  Quill.register(DividerBlot);
-
-  eqBtn.onclick = () => {
-    const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 };
-    quill.insertText(range.index, '$your equation here$', 'user');
-    quill.setSelection(range.index + 1, 0, 'user');
-    typesetMath();
-  };
-
-  imgBtn.onclick = () => {
-    const url = prompt("Image URL:");
-    if (!url) return;
-    const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 };
-    quill.insertEmbed(range.index, 'image', url, 'user');
-    quill.setSelection(range.index + 1, 0, 'user');
-  };
-
-  tableBtn.onclick = () => {
-    // Simple HTML table insert via clipboard API
-    const tableHTML = `
-<table border="1" style="border-collapse:collapse;width:100%;">
-  <tr><td style="padding:4px;">Cell</td><td style="padding:4px;">Cell</td><td style="padding:4px;">Cell</td></tr>
-  <tr><td style="padding:4px;">Cell</td><td style="padding:4px;">Cell</td><td style="padding:4px;">Cell</td></tr>
-  <tr><td style="padding:4px;">Cell</td><td style="padding:4px;">Cell</td><td style="padding:4px;">Cell</td></tr>
-</table><p></p>`;
-    const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 };
-    quill.clipboard.dangerouslyPasteHTML(range.index, tableHTML);
-  };
-
-  // --- Find & Replace ---
-  function toggleFindReplace() {
-    const visible = findReplaceBox.style.display === "block";
-    findReplaceBox.style.display = visible ? "none" : "block";
-    if (!visible) findInput.focus();
-  }
-  findBtn.onclick = toggleFindReplace;
-  closeFindBtn.onclick = () => (findReplaceBox.style.display = "none");
-
-  doFindBtn.onclick = () => {
-    const text = findInput.value;
-    if (!text) return;
-    const html = editorRoot.innerHTML;
-    const idx = html.toLowerCase().indexOf(text.toLowerCase());
-    if (idx === -1) {
-      alert("Not found");
-      return;
-    }
-    // crude: scroll to first match
-    const range = quill.getSelection(true) || { index: 0, length: 0 };
-    quill.setSelection(range.index, 0);
-    editorRoot.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
-
-  doReplaceBtn.onclick = () => {
-    const findText = findInput.value;
-    const replaceText = replaceInput.value;
-    if (!findText) return;
-    const re = new RegExp(findText.replace(/[.*+?^${}()|[\]
-
-\\]
-
-/g, "\\$&"), "gi");
-    const html = editorRoot.innerHTML;
-    editorRoot.innerHTML = html.replace(re, replaceText);
-    quill.setContents(quill.clipboard.convert(editorRoot.innerHTML));
-    typesetMath();
-  };
-
-  // --- Markdown paste ---
-  editorRoot.addEventListener("paste", (e) => {
-    const text = e.clipboardData && e.clipboardData.getData("text/plain");
-    if (!text) return;
-    e.preventDefault();
-    const html = marked.parse(text);
-    const range = quill.getSelection(true) || { index: quill.getLength(), length: 0 };
-    quill.clipboard.dangerouslyPasteHTML(range.index, html);
-  });
-
-  // --- Storage & autosave ---
   const STORAGE_KEY = "opaso-text-documents";
   const ACTIVE_KEY = "opaso-text-active-id";
+  const THEME_KEY = "opaso-text-theme";
+
   let docs = {};
   try {
     docs = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
@@ -406,6 +206,20 @@
     docs = {};
   }
   let activeId = localStorage.getItem(ACTIVE_KEY) || null;
+
+  function typesetMath() {
+    if (window.MathJax && window.MathJax.typesetPromise) {
+      window.MathJax.typesetPromise([preview]).catch(() => {});
+    }
+  }
+
+  function render() {
+    const text = editor.value;
+    preview.innerHTML = marked.parse(text, { breaks: true });
+    typesetMath();
+  }
+
+  editor.addEventListener("input", render);
 
   function saveDocs() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
@@ -427,8 +241,8 @@
     activeId = id;
     localStorage.setItem(ACTIVE_KEY, id);
     docTitle.value = doc.title;
-    quill.setContents(quill.clipboard.convert(doc.html || ""));
-    typesetMath();
+    editor.value = doc.content;
+    render();
     refreshOpenSelect();
     openSelect.value = id;
   }
@@ -437,15 +251,16 @@
     activeId = null;
     localStorage.removeItem(ACTIVE_KEY);
     docTitle.value = "";
-    quill.setText("");
+    editor.value = "";
+    render();
     refreshOpenSelect();
   }
 
   function saveDoc() {
     const title = docTitle.value.trim() || "Untitled";
-    const html = editorRoot.innerHTML;
+    const content = editor.value;
     if (!activeId) activeId = "doc-" + Date.now();
-    docs[activeId] = { title, html };
+    docs[activeId] = { title, content };
     saveDocs();
     localStorage.setItem(ACTIVE_KEY, activeId);
     refreshOpenSelect();
@@ -453,7 +268,7 @@
   }
 
   newBtn.onclick = () => {
-    if (quill.getText().trim() || docTitle.value.trim()) {
+    if (editor.value.trim() || docTitle.value.trim()) {
       if (!confirm("Discard current document and start a new one?")) return;
     }
     newDoc();
@@ -469,13 +284,14 @@
 
   // Autosave every 10s
   setInterval(() => {
-    if (!docTitle.value.trim() && !quill.getText().trim()) return;
+    if (!docTitle.value.trim() && !editor.value.trim()) return;
     saveDoc();
   }, 10000);
 
-  // --- Export ---
+  // Export
   exportHTML.onclick = () => {
-    const blob = new Blob([editorRoot.innerHTML], { type: "text/html" });
+    const html = preview.innerHTML;
+    const blob = new Blob([html], { type: "text/html" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = (docTitle.value || "document") + ".html";
@@ -486,34 +302,42 @@
     window.print();
   };
 
-  // --- Theme ---
+  // Theme
   function applyTheme(t) {
     document.documentElement.classList.toggle("dark", t === "dark");
     themeBtn.textContent = t === "dark" ? "☀️ Day" : "🌙 Night";
   }
-  let theme = localStorage.getItem("opaso-theme") || "light";
+  let theme = localStorage.getItem(THEME_KEY) || "light";
   applyTheme(theme);
   themeBtn.onclick = () => {
     theme = theme === "dark" ? "light" : "dark";
-    localStorage.setItem("opaso-theme", theme);
+    localStorage.setItem(THEME_KEY, theme);
     applyTheme(theme);
   };
 
-  // --- Init ---
+  // Initial load
   refreshOpenSelect();
   if (activeId && docs[activeId]) {
     loadDoc(activeId);
   } else {
-    const starter = `
-<h2><strong>opaso - text</strong></h2>
-<p>Type, paste Markdown, and use equations like $Distance = Speed \\times Time$.</p>
-<ul>
-  <li><strong>Speed, Distance, Time</strong>: $Distance = Speed \\times Time$</li>
-  <li><strong>Slope:</strong> $m = \\frac{y_2 - y_1}{x_2 - x_1}$</li>
-  <li><strong>Mean:</strong> $\\frac{\\text{Sum of numbers}}{\\text{Total count}}$</li>
-</ul>`;
-    quill.clipboard.dangerouslyPasteHTML(0, starter);
-    typesetMath();
+    editor.value =
+`# opaso - text
+
+Type or paste **Markdown** here. It renders below.
+
+**Speed, Distance, Time**
+*   $Distance = Speed \\times Time$
+*   $Speed = \\frac{Distance}{Time}$
+*   $Time = \\frac{Distance}{Speed}$
+
+**Algebra**
+*   **Slope (Gradient):** $m = \\frac{rise}{run} = \\frac{y_2 - y_1}{x_2 - x_1}$
+*   **Midpoint:** $(\\frac{x_1 + x_2}{2}, \\frac{y_1 + y_2}{2})$
+
+**Other**
+*   **Mean (Average):** $\\frac{\\text{Sum of numbers}}{\\text{Total count}}$
+*   **Sum of Angles in Polygon:** $(n - 2) \\times 180^\\circ$`;
+    render();
   }
 </script>
 
