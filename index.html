@@ -5,10 +5,12 @@
   <title>opaso - text</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- MIT License: You are free to use, modify, and distribute this file. -->
+
   <!-- Markdown renderer -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <!-- MathJax -->
+  <!-- MathJax for LaTeX equations -->
   <script>
     window.MathJax = {
       tex: {
@@ -45,7 +47,7 @@
 
     body {
       margin: 0;
-      font-family: system-ui, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: var(--bg);
       color: var(--fg);
       min-height: 100vh;
@@ -61,7 +63,6 @@
       border-bottom: 1px solid var(--border);
       background: var(--bg-alt);
       gap: 0.75rem;
-      flex-wrap: wrap;
     }
 
     .left, .right {
@@ -77,7 +78,16 @@
       font-weight: 600;
     }
 
-    input[type="text"], button, select {
+    input[type="text"] {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--fg);
+      min-width: 10rem;
+    }
+
+    button, select {
       padding: 0.3rem 0.6rem;
       border-radius: 4px;
       border: 1px solid var(--border);
@@ -89,7 +99,7 @@
 
     button.primary {
       background: var(--accent);
-      color: #fff;
+      color: #f9fafb;
       border-color: var(--accent);
     }
 
@@ -104,242 +114,293 @@
       padding: 0.75rem;
     }
 
-    #shell {
+    #editorShell {
       width: var(--editor-width);
       max-width: 100%;
       border: 1px solid var(--border);
       border-radius: 6px;
       background: var(--bg);
       padding: 1rem 1.25rem;
+      margin: 0 auto;
       box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
     }
 
     #editor {
-      width: 100%;
-      min-height: 40vh;
-      resize: vertical;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      padding: 0.75rem;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      background: var(--bg);
-      color: var(--fg);
+      min-height: 70vh;
+      outline: none;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
 
-    #preview {
-      width: 100%;
-      min-height: 40vh;
-      border-radius: 4px;
-      border: 1px solid var(--border);
-      padding: 0.75rem;
-      background: var(--bg-alt);
-      overflow: auto;
+    #editor:empty::before {
+      content: "Start typing, or paste Markdown (with $...$ equations)…";
+      color: #9ca3af;
     }
 
-    #preview h1, #preview h2, #preview h3 {
+    #editor h1, #editor h2, #editor h3 {
       border-bottom: 1px solid var(--border);
       padding-bottom: 0.25rem;
     }
 
-    #preview pre {
-      background: var(--bg);
+    #editor pre {
+      background: var(--bg-alt);
       padding: 0.5rem;
       border-radius: 4px;
       overflow: auto;
     }
 
-    #preview code {
+    #editor code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 
-    #preview a {
+    #editor a {
       color: var(--accent);
+    }
+
+    @media (max-width: 640px) {
+      header {
+        align-items: flex-start;
+      }
+      .left {
+        flex: 1 1 100%;
+      }
+      .right {
+        justify-content: flex-end;
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
+  <header>
+    <div class="left">
+      <h1>opaso - text</h1>
+      <input id="docTitle" type="text" placeholder="Untitled document" />
+      <button id="newBtn">New</button>
+      <button id="saveBtn" class="primary">Save</button>
+      <select id="openSelect">
+        <option value="">Open…</option>
+      </select>
+    </div>
+    <div class="right">
+      <button id="themeBtn">🌙 Night</button>
+    </div>
+  </header>
 
-<header>
-  <div class="left">
-    <h1>opaso - text</h1>
-    <input id="docTitle" type="text" placeholder="Untitled document" />
-    <button id="newBtn">New</button>
-    <button id="saveBtn" class="primary">Save</button>
-    <select id="openSelect"><option value="">Open…</option></select>
-  </div>
-  <div class="right">
-    <button id="exportHTML">Export HTML</button>
-    <button id="exportPDF">Export PDF</button>
-    <button id="themeBtn">🌙 Night</button>
-  </div>
-</header>
+  <main>
+    <div id="editorShell">
+      <div id="editor" contenteditable="true"></div>
+    </div>
+  </main>
 
-<main>
-  <div id="shell">
-    <textarea id="editor" placeholder="# Start typing or paste Markdown with $equations$…"></textarea>
-    <div id="preview"></div>
-  </div>
-</main>
+  <script>
+    // --- Storage keys -------------------------------------------------------
+    const STORAGE_KEY = "opaso-text-documents";
+    const THEME_KEY = "opaso-text-theme";
+    const ACTIVE_KEY = "opaso-text-active-id";
 
-<script>
-  const editor = document.getElementById("editor");
-  const preview = document.getElementById("preview");
-  const docTitle = document.getElementById("docTitle");
-  const newBtn = document.getElementById("newBtn");
-  const saveBtn = document.getElementById("saveBtn");
-  const openSelect = document.getElementById("openSelect");
-  const exportHTML = document.getElementById("exportHTML");
-  const exportPDF = document.getElementById("exportPDF");
-  const themeBtn = document.getElementById("themeBtn");
-
-  const STORAGE_KEY = "opaso-text-documents";
-  const ACTIVE_KEY = "opaso-text-active-id";
-  const THEME_KEY = "opaso-text-theme";
-
-  let docs = {};
-  try {
-    docs = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-  } catch {
-    docs = {};
-  }
-  let activeId = localStorage.getItem(ACTIVE_KEY) || null;
-
-  function typesetMath() {
-    if (window.MathJax && window.MathJax.typesetPromise) {
-      window.MathJax.typesetPromise([preview]).catch(() => {});
+    // --- Storage helpers ----------------------------------------------------
+    function loadDocs() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+      } catch {
+        return {};
+      }
     }
-  }
 
-  function render() {
-    const text = editor.value;
-    preview.innerHTML = marked.parse(text, { breaks: true });
-    typesetMath();
-  }
+    function saveDocs(docs) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
+    }
 
-  editor.addEventListener("input", render);
+    function generateId() {
+      return "doc-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+    }
 
-  function saveDocs() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
-  }
+    // --- DOM references -----------------------------------------------------
+    const editor = document.getElementById("editor");
+    const docTitleInput = document.getElementById("docTitle");
+    const newBtn = document.getElementById("newBtn");
+    const saveBtn = document.getElementById("saveBtn");
+    const openSelect = document.getElementById("openSelect");
+    const themeBtn = document.getElementById("themeBtn");
 
-  function refreshOpenSelect() {
-    openSelect.innerHTML = '<option value="">Open…</option>';
-    Object.entries(docs).forEach(([id, doc]) => {
-      const opt = document.createElement("option");
-      opt.value = id;
-      opt.textContent = doc.title;
-      openSelect.appendChild(opt);
+    let docs = loadDocs();
+    let activeId = localStorage.getItem(ACTIVE_KEY) || null;
+
+    // --- Markdown paste handling -------------------------------------------
+    function typesetMath() {
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise([editor]).catch(() => {});
+      }
+    }
+
+    editor.addEventListener("paste", (e) => {
+      const text = e.clipboardData && e.clipboardData.getData("text/plain");
+      if (!text) return;
+
+      e.preventDefault();
+
+      // Convert pasted Markdown to HTML
+      const html = marked.parse(text, { breaks: true });
+
+      // Insert HTML at caret
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        editor.insertAdjacentHTML("beforeend", html);
+      } else {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        const temp = document.createElement("div");
+        temp.innerHTML = html;
+        const frag = document.createDocumentFragment();
+        let node;
+        while ((node = temp.firstChild)) {
+          frag.appendChild(node);
+        }
+        range.insertNode(frag);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+
+      typesetMath();
     });
-  }
 
-  function loadDoc(id) {
-    const doc = docs[id];
-    if (!doc) return;
-    activeId = id;
-    localStorage.setItem(ACTIVE_KEY, id);
-    docTitle.value = doc.title;
-    editor.value = doc.content;
-    render();
-    refreshOpenSelect();
-    openSelect.value = id;
-  }
+    // When content changes (typing), re-run MathJax for new formulas
+    editor.addEventListener("input", () => {
+      typesetMath();
+    });
 
-  function newDoc() {
-    activeId = null;
-    localStorage.removeItem(ACTIVE_KEY);
-    docTitle.value = "";
-    editor.value = "";
-    render();
-    refreshOpenSelect();
-  }
-
-  function saveDoc() {
-    const title = docTitle.value.trim() || "Untitled";
-    const content = editor.value;
-    if (!activeId) activeId = "doc-" + Date.now();
-    docs[activeId] = { title, content };
-    saveDocs();
-    localStorage.setItem(ACTIVE_KEY, activeId);
-    refreshOpenSelect();
-    openSelect.value = activeId;
-  }
-
-  newBtn.onclick = () => {
-    if (editor.value.trim() || docTitle.value.trim()) {
-      if (!confirm("Discard current document and start a new one?")) return;
+    // --- Document management -----------------------------------------------
+    function refreshOpenSelect() {
+      const current = openSelect.value;
+      openSelect.innerHTML = '<option value="">Open…</option>';
+      Object.entries(docs)
+        .sort((a, b) => (a[1].updated || 0) < (b[1].updated || 0) ? 1 : -1)
+        .forEach(([id, doc]) => {
+          const opt = document.createElement("option");
+          opt.value = id;
+          opt.textContent = doc.title || "Untitled";
+          openSelect.appendChild(opt);
+        });
+      if (current && docs[current]) openSelect.value = current;
     }
-    newDoc();
-  };
 
-  saveBtn.onclick = saveDoc;
+    function loadDoc(id) {
+      const doc = docs[id];
+      if (!doc) return;
+      activeId = id;
+      localStorage.setItem(ACTIVE_KEY, id);
+      docTitleInput.value = doc.title || "";
+      editor.innerHTML = doc.html || "";
+      typesetMath();
+      refreshOpenSelect();
+      openSelect.value = id;
+    }
 
-  openSelect.onchange = () => {
-    const id = openSelect.value;
-    if (!id) return;
-    loadDoc(id);
-  };
+    function newDoc() {
+      activeId = null;
+      localStorage.removeItem(ACTIVE_KEY);
+      docTitleInput.value = "";
+      editor.innerHTML = "";
+      refreshOpenSelect();
+      openSelect.value = "";
+    }
 
-  // Autosave every 10s
-  setInterval(() => {
-    if (!docTitle.value.trim() && !editor.value.trim()) return;
-    saveDoc();
-  }, 10000);
+    function saveDoc() {
+      const title = docTitleInput.value.trim() || "Untitled";
+      const html = editor.innerHTML;
+      const now = Date.now();
 
-  // Export
-  exportHTML.onclick = () => {
-    const html = preview.innerHTML;
-    const blob = new Blob([html], { type: "text/html" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = (docTitle.value || "document") + ".html";
-    a.click();
-  };
+      if (!activeId) {
+        activeId = generateId();
+      }
 
-  exportPDF.onclick = () => {
-    window.print();
-  };
+      docs[activeId] = { title, html, updated: now };
+      saveDocs(docs);
+      localStorage.setItem(ACTIVE_KEY, activeId);
+      refreshOpenSelect();
+      openSelect.value = activeId;
+    }
 
-  // Theme
-  function applyTheme(t) {
-    document.documentElement.classList.toggle("dark", t === "dark");
-    themeBtn.textContent = t === "dark" ? "☀️ Day" : "🌙 Night";
-  }
-  let theme = localStorage.getItem(THEME_KEY) || "light";
-  applyTheme(theme);
-  themeBtn.onclick = () => {
-    theme = theme === "dark" ? "light" : "dark";
-    localStorage.setItem(THEME_KEY, theme);
-    applyTheme(theme);
-  };
+    newBtn.addEventListener("click", () => {
+      if (editor.innerText.trim() || docTitleInput.value.trim()) {
+        const ok = confirm("Discard current document and start a new one?");
+        if (!ok) return;
+      }
+      newDoc();
+    });
 
-  // Initial load
-  refreshOpenSelect();
-  if (activeId && docs[activeId]) {
-    loadDoc(activeId);
-  } else {
-    editor.value =
-`# opaso - text
+    saveBtn.addEventListener("click", saveDoc);
 
-Type or paste **Markdown** here. It renders below.
+    openSelect.addEventListener("change", () => {
+      const id = openSelect.value;
+      if (!id) return;
+      loadDoc(id);
+    });
 
-**Speed, Distance, Time**
-*   $Distance = Speed \\times Time$
-*   $Speed = \\frac{Distance}{Time}$
-*   $Time = \\frac{Distance}{Speed}$
+    docTitleInput.addEventListener("input", () => {
+      if (!activeId || !docs[activeId]) return;
+      docs[activeId].title = docTitleInput.value;
+      docs[activeId].updated = Date.now();
+      saveDocs(docs);
+      refreshOpenSelect();
+      openSelect.value = activeId;
+    });
 
-**Algebra**
-*   **Slope (Gradient):** $m = \\frac{rise}{run} = \\frac{y_2 - y_1}{x_2 - x_1}$
-*   **Midpoint:** $(\\frac{x_1 + x_2}{2}, \\frac{y_1 + y_2}{2})$
+    // --- Theme handling -----------------------------------------------------
+    function applyTheme(theme) {
+      const root = document.documentElement;
+      if (theme === "dark") {
+        root.classList.add("dark");
+        themeBtn.textContent = "☀️ Day";
+      } else {
+        root.classList.remove("dark");
+        themeBtn.textContent = "🌙 Night";
+      }
+    }
 
-**Other**
-*   **Mean (Average):** $\\frac{\\text{Sum of numbers}}{\\text{Total count}}$
-*   **Sum of Angles in Polygon:** $(n - 2) \\times 180^\\circ$`;
-    render();
-  }
-</script>
+    const savedTheme = localStorage.getItem(THEME_KEY) || "light";
+    applyTheme(savedTheme);
 
+    themeBtn.addEventListener("click", () => {
+      const current = document.documentElement.classList.contains("dark") ? "dark" : "light";
+      const next = current === "dark" ? "light" : "dark";
+      localStorage.setItem(THEME_KEY, next);
+      applyTheme(next);
+    });
+
+    // --- Initial load -------------------------------------------------------
+    refreshOpenSelect();
+    if (activeId && docs[activeId]) {
+      loadDoc(activeId);
+    } else {
+      const starter = `
+<h1><strong>opaso - text</strong></h1>
+<p>Paste Markdown (with equations) or just start typing like a word processor.</p>
+
+<h2><strong>Speed, Distance, Time</strong></h2>
+<ul>
+  <li>$Distance = Speed \\times Time$</li>
+  <li>$Speed = \\frac{Distance}{Time}$</li>
+  <li>$Time = \\frac{Distance}{Speed}$</li>
+</ul>
+
+<h2><strong>Algebra</strong></h2>
+<ul>
+  <li><strong>Slope (Gradient):</strong> $m = \\frac{rise}{run} = \\frac{y_2 - y_1}{x_2 - x_1}$</li>
+  <li><strong>Midpoint:</strong> $(\\frac{x_1 + x_2}{2}, \\frac{x_1 + x_2}{2})$</li>
+</ul>
+
+<h2><strong>Other</strong></h2>
+<ul>
+  <li><strong>Mean (Average):</strong> $\\frac{\\text{Sum of numbers}}{\\text{Total count}}$</li>
+  <li><strong>Sum of Angles in Polygon:</strong> $(n - 2) \\times 180^\\circ$</li>
+</ul>
+`;
+      editor.innerHTML = starter;
+      typesetMath();
+    }
+  </script>
 </body>
 </html>
